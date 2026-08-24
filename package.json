@@ -1,0 +1,16 @@
+{
+  "name": "travel-expense-tracker",
+  "version": "1.0.0",
+  "description": "旅遊記帳系統：即時匯率換算、分類記帳、花費圖表、分帳結算",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^2.0.0"
+  }
+}

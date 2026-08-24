@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>旅遊記帳系統</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" />
+<meta name="theme-color" content="#2563eb" />
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+<header class="topbar">
+  <h1>✈️ 旅遊記帳系統</h1>
+  <div class="trip-picker">
+    <span id="offlineBadge" class="offline-badge hidden">📴 離線，<span id="offlineCount">0</span> 筆待同步</span>
+    <select id="tripSelect"><option value="">請選擇旅程...</option></select>
+    <button id="newTripBtn" class="btn btn-primary">＋ 新增旅程</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="record">記帳</button>
+  <button class="tab-btn" data-tab="dashboard">總覽圖表</button>
+  <button class="tab-btn" data-tab="admin">管理</button>
+  <button class="tab-btn" data-tab="settlement">分帳結算</button>
+</nav>
+
+<main id="app">
+  <p id="noTripHint" class="hint">請先在右上角建立或選擇一個旅程。</p>
+
+  <!-- 記帳 -->
+  <section id="tab-record" class="tab-panel active">
+    <form id="expenseForm" class="card">
+      <input type="hidden" id="expenseId" />
+      <h2 id="formTitle">新增支出</h2>
+      <div class="form-grid">
+        <label>日期
+          <input type="date" id="f-date" required />
+        </label>
+        <label>分類
+          <select id="f-category"></select>
+        </label>
+        <label>付款人
+          <select id="f-payer"></select>
+        </label>
+        <label>原幣金額
+          <input type="number" id="f-amount" step="0.01" min="0" required />
+        </label>
+        <label>幣別
+          <select id="f-currency"></select>
+        </label>
+        <label>匯率（自動帶入，可手動修改）
+          <input type="number" id="f-rate" step="any" min="0" required />
+        </label>
+        <label>付款方式
+          <select id="f-payment">
+            <option value="cash">現金</option>
+            <option value="credit_card">信用卡</option>
+          </select>
+        </label>
+      </div>
+      <p id="rateStatus" class="rate-status"></p>
+      <p class="converted-preview">換算金額：<strong id="convertedPreview">-</strong> <span id="baseCurrencyLabel"></span></p>
+
+      <div class="split-block">
+        <label>分攤方式</label>
+        <div class="split-mode">
+          <label><input type="radio" name="splitMode" value="none" /> 無需分攤</label>
+          <label><input type="radio" name="splitMode" value="equal" checked /> 全體成員均分</label>
+          <label><input type="radio" name="splitMode" value="custom" /> 自訂分攤金額</label>
+        </div>
+        <div id="splitCustomArea" class="split-custom hidden"></div>
+      </div>
+
+      <label class="note-label">備註
+        <input type="text" id="f-note" placeholder="選填" />
+      </label>
+
+      <label class="note-label">收據照片（選填）
+        <input type="file" id="f-receipt" accept="image/*" />
+      </label>
+      <div id="receiptPreview" class="receipt-preview hidden">
+        <img id="receiptImg" alt="收據預覽" />
+        <button type="button" id="removeReceiptBtn" class="btn btn-danger btn-small">移除收據</button>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">儲存</button>
+        <button type="button" id="cancelEditBtn" class="btn btn-secondary hidden">取消編輯</button>
+      </div>
+    </form>
+
+    <div class="card">
+      <h2>最近的支出</h2>
+      <div id="recentExpenses"></div>
+    </div>
+  </section>
+
+  <!-- 總覽圖表 -->
+  <section id="tab-dashboard" class="tab-panel">
+    <div class="card filter-bar">
+      <label>從 <input type="date" id="filterFrom" /></label>
+      <label>到 <input type="date" id="filterTo" /></label>
+      <button id="clearFilterBtn" class="btn btn-secondary">清除篩選</button>
+      <a id="exportCsvBtn" class="btn btn-secondary" href="#" download>匯出 CSV</a>
+    </div>
+    <div class="card total-card">
+      <div>總花費</div>
+      <div id="totalAmount" class="total-amount">-</div>
+    </div>
+    <div class="charts-grid">
+      <div class="card"><h3>依分類</h3><canvas id="categoryChart"></canvas></div>
+      <div class="card"><h3>每日花費趨勢</h3><canvas id="dateChart"></canvas></div>
+      <div class="card"><h3>依成員支付金額</h3><canvas id="memberChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 管理 -->
+  <section id="tab-admin" class="tab-panel">
+    <div class="card">
+      <h2>旅程設定</h2>
+      <div class="form-grid">
+        <label>名稱 <input type="text" id="t-name" /></label>
+        <label>基準貨幣（分帳結算與圖表用） <select id="t-currency"></select></label>
+        <label>記帳預設幣別（新增支出時預先選好） <select id="t-default-currency"></select></label>
+        <label>開始日期 <input type="date" id="t-start" /></label>
+        <label>結束日期 <input type="date" id="t-end" /></label>
+      </div>
+      <div class="form-actions">
+        <button id="saveTripBtn" class="btn btn-primary">儲存旅程設定</button>
+        <button id="deleteTripBtn" class="btn btn-danger">刪除此旅程</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>成員</h2>
+      <div id="memberList" class="chip-list"></div>
+      <div class="inline-add">
+        <input type="text" id="newMemberName" placeholder="新成員名稱" />
+        <button id="addMemberBtn" class="btn btn-secondary">新增成員</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>花費分類</h2>
+      <div id="categoryList" class="chip-list"></div>
+      <div class="inline-add">
+        <input type="text" id="newCategoryName" placeholder="新分類名稱" />
+        <button id="addCategoryBtn" class="btn btn-secondary">新增分類</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>所有支出紀錄</h2>
+      <div class="table-wrap">
+        <table id="expenseTable">
+          <thead>
+            <tr><th>日期</th><th>分類</th><th>付款人</th><th>付款方式</th><th>原幣</th><th>換算金額</th><th>備註</th><th>分攤</th><th>收據</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 分帳結算 -->
+  <section id="tab-settlement" class="tab-panel">
+    <div class="card">
+      <h2>成員收支</h2>
+      <table id="balanceTable">
+        <thead><tr><th>成員</th><th>已付</th><th>應分攤</th><th>淨額</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>建議轉帳</h2>
+      <ul id="transactionList" class="transaction-list"></ul>
+    </div>
+  </section>
+</main>
+
+<div id="modalRoot"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
