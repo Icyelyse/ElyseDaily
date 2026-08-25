@@ -68,7 +68,7 @@
         <label>分攤方式</label>
         <div class="split-mode">
           <label><input type="radio" name="splitMode" value="none" /> 無需分攤</label>
-          <label><input type="radio" name="splitMode" value="equal" checked /> 全體成員均分</label>
+          <label><input type="radio" name="splitMode" value="equal" checked /> 全體均分</label>
           <label><input type="radio" name="splitMode" value="custom" /> 自訂分攤金額</label>
         </div>
         <div id="splitCustomArea" class="split-custom hidden"></div>
@@ -202,7 +202,7 @@
       <p class="hint">列出這趟旅程所有輸入的支出，不論分攤方式，方便對照上面的結算結果。</p>
       <div class="table-wrap">
         <table id="expenseDetailTable">
-          <thead><tr><th>日期</th><th>付款人</th><th>付款方式</th><th>金額(TWD)</th><th>分攤方式</th><th>分攤明細</th></tr></thead>
+          <thead><tr><th>日期</th><th>付款人</th><th>付款方式</th><th>付款金額（幣別）</th><th>金額(TWD)</th><th>分攤方式</th><th>分攤明細</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

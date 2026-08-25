@@ -853,7 +853,7 @@ function renderExpenseDetailTable() {
   const tbody = document.querySelector('#expenseDetailTable tbody');
   if (!tbody) return;
   if (state.expenses.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="hint">尚無支出紀錄</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="hint">尚無支出紀錄</td></tr>';
     return;
   }
   const memberCount = state.currentTrip.members.length;
@@ -862,6 +862,7 @@ function renderExpenseDetailTable() {
       <td>${e.date}</td>
       <td>${escapeHtml(e.payer_name || '未指定')}</td>
       <td>${PAYMENT_METHOD_LABELS[e.payment_method] || '現金'}</td>
+      <td>${fmt(e.original_amount)} ${e.original_currency}</td>
       <td>${fmt(e.converted_amount)} TWD</td>
       <td>${describeSplitMode(e, memberCount)}</td>
       <td class="wrap">${e.splits.length ? e.splits.map((s) => `${escapeHtml(s.member_name)}:${fmt(s.share_amount)}`).join(', ') : '—'}</td>
