@@ -649,6 +649,16 @@ function resetExpenseForm() {
   updateConvertedPreview();
 }
 
+// 從分攤明細反推這筆支出當初用的是哪種分攤方式（DB 本身沒有另外存 split_mode）
+function describeSplitMode(expense, memberCount) {
+  if (expense.splits.length === 0) return '無需分攤';
+  const count = memberCount || 1;
+  const equalShare = Math.round((expense.converted_amount / count) * 100) / 100;
+  const isEqual = expense.splits.length === count &&
+    expense.splits.every((s) => Math.abs(s.share_amount - equalShare) < 0.02);
+  return isEqual ? '全體均分' : '自訂分攤';
+}
+
 function startEditExpense(expense) {
   document.getElementById('expenseId').value = expense.id;
   document.getElementById('formTitle').textContent = '編輯支出';
@@ -673,16 +683,8 @@ function startEditExpense(expense) {
     hideReceiptPreview();
   }
 
-  let mode = 'custom';
-  if (expense.splits.length === 0) {
-    mode = 'none';
-  } else {
-    const memberCount = state.currentTrip.members.length || 1;
-    const equalShare = Math.round((expense.converted_amount / memberCount) * 100) / 100;
-    const isEqual = expense.splits.length === memberCount &&
-      expense.splits.every((s) => Math.abs(s.share_amount - equalShare) < 0.02);
-    if (isEqual) mode = 'equal';
-  }
+  const description = describeSplitMode(expense, state.currentTrip.members.length);
+  const mode = description === '無需分攤' ? 'none' : description === '全體均分' ? 'equal' : 'custom';
 
   document.querySelector(`input[name="splitMode"][value="${mode}"]`).checked = true;
   renderSplitCustomArea();
@@ -842,6 +844,29 @@ async function loadSettlement() {
   list.innerHTML = data.transactions.length
     ? data.transactions.map((t) => `<li>${escapeHtml(t.from)} → ${escapeHtml(t.to)}：${fmt(t.amount)} TWD</li>`).join('')
     : '<li class="hint">目前收支平衡，無需轉帳</li>';
+
+  renderExpenseDetailTable();
+}
+
+// 列出這趟旅程「所有」支出（不管分攤方式），讓大家看得到完整的輸入資料，跟結算計算邏輯分開
+function renderExpenseDetailTable() {
+  const tbody = document.querySelector('#expenseDetailTable tbody');
+  if (!tbody) return;
+  if (state.expenses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="hint">尚無支出紀錄</td></tr>';
+    return;
+  }
+  const memberCount = state.currentTrip.members.length;
+  tbody.innerHTML = state.expenses.map((e) => `
+    <tr>
+      <td>${e.date}</td>
+      <td>${escapeHtml(e.payer_name || '未指定')}</td>
+      <td>${PAYMENT_METHOD_LABELS[e.payment_method] || '現金'}</td>
+      <td>${fmt(e.converted_amount)} TWD</td>
+      <td>${describeSplitMode(e, memberCount)}</td>
+      <td class="wrap">${e.splits.length ? e.splits.map((s) => `${escapeHtml(s.member_name)}:${fmt(s.share_amount)}`).join(', ') : '—'}</td>
+    </tr>
+  `).join('');
 }
 
 async function selectTripByFamilyNumber(familyNumber) {
