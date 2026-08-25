@@ -65,15 +65,49 @@ async function init() {
     PRIMARY KEY (date, base_currency, target_currency)
   )`);
 
+  await db.execute(`CREATE TABLE IF NOT EXISTS trip_currencies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    currency TEXT NOT NULL
+  )`);
+
   // 針對已存在的資料庫檔案做欄位遷移（新裝的話這些欄位在上面 CREATE TABLE 就已包含對應預設值）
   await ensureColumn('expenses', 'payment_method', "TEXT DEFAULT 'cash'");
   await ensureColumn('expenses', 'receipt_mime', 'TEXT');
   await ensureColumn('expenses', 'receipt_image', 'BLOB');
   await ensureColumn('trips', 'default_currency', 'TEXT');
+  await ensureColumn('trips', 'family_number', 'INTEGER');
+  await ensureColumn('trips', 'pin_hash', 'TEXT');
+  await ensureColumn('trips', 'pin_salt', 'TEXT');
   // 舊資料補上預設幣別（沿用基準貨幣），之後可在「管理」分頁另外設定
   await db.execute('UPDATE trips SET default_currency = base_currency WHERE default_currency IS NULL');
   // 系統改為一律換算成新台幣，基準貨幣不再開放自訂
   await db.execute("UPDATE trips SET base_currency = 'TWD' WHERE base_currency <> 'TWD'");
+
+  // 舊旅程補上乾淨的親友連結序號（1、2、3...），依建立時間排序
+  const missingFamilyNumbers = await db.execute('SELECT id FROM trips WHERE family_number IS NULL ORDER BY created_at ASC, id ASC');
+  if (missingFamilyNumbers.rows.length > 0) {
+    const maxResult = await db.execute('SELECT COALESCE(MAX(family_number), 0) AS max FROM trips');
+    let next = maxResult.rows[0].max + 1;
+    for (const row of missingFamilyNumbers.rows) {
+      await db.execute({ sql: 'UPDATE trips SET family_number = ? WHERE id = ?', args: [next, row.id] });
+      next += 1;
+    }
+  }
+
+  // 舊旅程把「記帳預設幣別」搬進常用幣別清單，並確保每趟旅程一定有 TWD 可選
+  const trips = await db.execute('SELECT id, default_currency FROM trips');
+  for (const trip of trips.rows) {
+    const existing = await db.execute({ sql: 'SELECT currency FROM trip_currencies WHERE trip_id = ?', args: [trip.id] });
+    const have = new Set(existing.rows.map((r) => r.currency));
+    const toAdd = new Set(['TWD']);
+    if (trip.default_currency) toAdd.add(trip.default_currency);
+    for (const currency of toAdd) {
+      if (!have.has(currency)) {
+        await db.execute({ sql: 'INSERT INTO trip_currencies (trip_id, currency) VALUES (?, ?)', args: [trip.id, currency] });
+      }
+    }
+  }
 }
 
 async function ensureColumn(table, column, definition) {

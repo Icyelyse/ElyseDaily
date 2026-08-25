@@ -11,8 +11,8 @@ const exportRouter = require('./routes/export');
 const app = express();
 app.use(express.json());
 
-app.get('/friend/:tripId(\\d+)', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'friend.html'));
+app.get('/family/:familyNumber(\\d+)', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'family.html'));
 });
 
 app.use(express.static(path.join(__dirname, 'public')));

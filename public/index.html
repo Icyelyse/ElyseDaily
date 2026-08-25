@@ -6,7 +6,7 @@
 <title>旅遊記帳系統</title>
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" />
-<meta name="theme-color" content="#2563eb" />
+<meta name="theme-color" content="#7B93A8" />
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
@@ -123,9 +123,10 @@
       <h2>旅程設定</h2>
       <div class="form-grid">
         <label>名稱 <input type="text" id="t-name" /></label>
-        <label>記帳預設幣別（新增支出時預先選好） <select id="t-default-currency"></select></label>
         <label>開始日期 <input type="date" id="t-start" /></label>
         <label>結束日期 <input type="date" id="t-end" /></label>
+        <label>簡易密碼（留空 = 不變更） <input type="password" id="t-pin" autocomplete="new-password" /></label>
+        <label>確認密碼 <input type="password" id="t-pin-confirm" autocomplete="new-password" /></label>
       </div>
       <div class="form-actions">
         <button id="saveTripBtn" class="btn btn-primary">儲存旅程設定</button>
@@ -134,11 +135,21 @@
     </div>
 
     <div class="card">
-      <h2>分享給朋友的連結</h2>
-      <p class="hint">朋友打開這個連結只能新增記帳、看圖表和分帳結果，不會看到旅程管理設定，也不能編輯/刪除紀錄。</p>
+      <h2>常用幣別</h2>
+      <p class="hint">記帳分頁的「付款幣別」下拉選單只會列出這裡設定的幣別，親友選起來更快。TWD 一定會保留，無法移除。</p>
+      <div id="currencyList" class="chip-list"></div>
       <div class="inline-add">
-        <input type="text" id="friendLinkInput" readonly />
-        <button id="copyFriendLinkBtn" class="btn btn-secondary">複製連結</button>
+        <select id="newCurrencySelect"></select>
+        <button id="addCurrencyBtn" class="btn btn-secondary">新增幣別</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>分享給親友的連結</h2>
+      <p class="hint">親友打開這個連結只能新增記帳、看圖表和分帳結果，不會看到旅程管理設定，也不能編輯/刪除紀錄。</p>
+      <div class="inline-add">
+        <input type="text" id="familyLinkInput" readonly />
+        <button id="copyFamilyLinkBtn" class="btn btn-secondary">複製連結</button>
       </div>
     </div>
 

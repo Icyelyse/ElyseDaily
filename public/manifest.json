@@ -3,8 +3,8 @@
   "short_name": "旅遊記帳",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f6fb",
-  "theme_color": "#2563eb",
+  "background_color": "#F1F0EC",
+  "theme_color": "#7B93A8",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]

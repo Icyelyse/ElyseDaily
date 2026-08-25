@@ -1,12 +1,18 @@
 :root {
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --danger: #dc2626;
-  --bg: #f4f6fb;
-  --card-bg: #ffffff;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --border: #e5e7eb;
+  --primary: #7B93A8;
+  --primary-dark: #64798C;
+  --primary-light: #E4E9ED;
+  --danger: #B98572;
+  --danger-light: #F1E6E0;
+  --success: #5A6B52;
+  --success-light: #DCE3D5;
+  --warning: #8B6F47;
+  --warning-light: #EDE3D3;
+  --bg: #F1F0EC;
+  --card-bg: #FFFFFF;
+  --text: #4A4A45;
+  --muted: #9B9B93;
+  --border: #E2E0D9;
 }
 
 * { box-sizing: border-box; }
@@ -34,7 +40,7 @@ body {
 .trip-picker { display: flex; gap: 8px; align-items: center; }
 
 .offline-badge {
-  background: #fef3c7; color: #92400e;
+  background: var(--warning-light); color: var(--warning);
   padding: 6px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
 }
 
@@ -57,10 +63,10 @@ select, input[type="text"], input[type="number"], input[type="date"] {
 }
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:hover { background: var(--primary-dark); }
-.btn-secondary { background: #e5e7eb; color: var(--text); }
-.btn-secondary:hover { background: #d1d5db; }
-.btn-danger { background: #fee2e2; color: var(--danger); }
-.btn-danger:hover { background: #fecaca; }
+.btn-secondary { background: var(--border); color: var(--text); }
+.btn-secondary:hover { background: #D3D0C6; }
+.btn-danger { background: var(--danger-light); color: var(--danger); }
+.btn-danger:hover { background: #E6D2C7; }
 .btn-small { padding: 4px 8px; font-size: 0.8rem; }
 
 .tabs {
@@ -128,10 +134,10 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px; }
 .chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .chip {
   display: flex; align-items: center; gap: 6px;
-  background: #eef2ff; color: #3730a3;
+  background: var(--primary-light); color: var(--primary-dark);
   padding: 6px 10px; border-radius: 999px; font-size: 0.85rem;
 }
-.chip button { border: none; background: none; cursor: pointer; color: #6366f1; font-weight: bold; }
+.chip button { border: none; background: none; cursor: pointer; color: var(--primary-dark); font-weight: bold; }
 
 .inline-add { display: flex; gap: 8px; }
 
@@ -155,7 +161,7 @@ td.wrap { white-space: normal; }
 
 .transaction-list { list-style: none; padding: 0; margin: 0; }
 .transaction-list li {
-  padding: 10px 12px; border-radius: 8px; background: #f0fdf4; color: #166534;
+  padding: 10px 12px; border-radius: 8px; background: var(--success-light); color: var(--success);
   margin-bottom: 8px; font-size: 0.95rem;
 }
 .transaction-list li:empty { display: none; }
