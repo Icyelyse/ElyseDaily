@@ -111,6 +111,11 @@
       <div class="card"><h3>依分類</h3><canvas id="categoryChart"></canvas></div>
       <div class="card"><h3>每日花費趨勢</h3><canvas id="dateChart"></canvas></div>
       <div class="card"><h3>依成員支付金額</h3><canvas id="memberChart"></canvas></div>
+      <div class="card">
+        <h3>依原幣別分別加總</h3>
+        <canvas id="currencyChart"></canvas>
+        <div id="currencyBreakdown" class="currency-breakdown"></div>
+      </div>
     </div>
   </section>
 
@@ -130,9 +135,18 @@
     <div class="card">
       <h2>支出明細</h2>
       <p class="hint">列出這趟旅程所有輸入的支出，不論分攤方式，方便對照上面的結算結果。</p>
+      <div class="filter-bar detail-filter-bar">
+        <label>付款人 <select id="detailFilterPayer"></select></label>
+        <label>從 <input type="date" id="detailFilterFrom" /></label>
+        <label>到 <input type="date" id="detailFilterTo" /></label>
+        <button id="clearDetailFilterBtn" class="btn btn-secondary">清除篩選</button>
+        <button id="exportSettlementCsvBtn" class="btn btn-secondary">匯出 CSV</button>
+      </div>
       <div class="table-wrap">
         <table id="expenseDetailTable">
-          <thead><tr><th>日期</th><th>付款人</th><th>付款方式</th><th>付款金額（幣別）</th><th>金額(TWD)</th><th>分攤方式</th><th>分攤明細</th></tr></thead>
+          <thead>
+            <tr><th>日期</th><th>分類</th><th>付款人</th><th>付款方式</th><th>付款金額</th><th>換算金額(TWD)</th><th>備註</th><th>分攤方式</th><th>分攤明細</th><th>收據</th></tr>
+          </thead>
           <tbody></tbody>
         </table>
       </div>

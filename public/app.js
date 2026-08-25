@@ -724,14 +724,9 @@ function renderRecentExpenses() {
   `).join('');
 }
 
-function renderExpenseTable() {
-  const tbody = document.querySelector('#expenseTable tbody');
-  if (state.expenses.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="hint">尚無支出紀錄</td></tr>';
-    return;
-  }
-  tbody.innerHTML = state.expenses.map((e) => `
-    <tr>
+// 管理頁「所有支出紀錄」與分帳結算頁「支出明細」共用同一組欄位，只差管理頁多了編輯/刪除
+function expenseRowCells(e, memberCount) {
+  return `
       <td>${e.date}</td>
       <td>${escapeHtml(e.category_name || '未分類')}</td>
       <td>${escapeHtml(e.payer_name || '未指定')}</td>
@@ -739,8 +734,21 @@ function renderExpenseTable() {
       <td>${fmt(e.original_amount)} ${e.original_currency}</td>
       <td>${fmt(e.converted_amount)} TWD</td>
       <td class="wrap">${escapeHtml(e.note || '')}</td>
-      <td class="wrap">${e.splits.length ? e.splits.map((s) => `${escapeHtml(s.member_name)}:${fmt(s.share_amount)}`).join(', ') : '無需分攤'}</td>
-      <td>${e.has_receipt ? `<a class="receipt-link" href="/api/expenses/${e.id}/receipt" target="_blank" rel="noopener" title="查看收據">📷</a>` : ''}</td>
+      <td>${describeSplitMode(e, memberCount)}</td>
+      <td class="wrap">${e.splits.length ? e.splits.map((s) => `${escapeHtml(s.member_name)}:${fmt(s.share_amount)}`).join(', ') : '—'}</td>
+      <td>${e.has_receipt ? `<a class="receipt-link" href="/api/expenses/${e.id}/receipt" target="_blank" rel="noopener" title="查看收據">📷</a>` : ''}</td>`;
+}
+
+function renderExpenseTable() {
+  const tbody = document.querySelector('#expenseTable tbody');
+  if (state.expenses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" class="hint">尚無支出紀錄</td></tr>';
+    return;
+  }
+  const memberCount = state.currentTrip.members.length;
+  tbody.innerHTML = state.expenses.map((e) => `
+    <tr>
+      ${expenseRowCells(e, memberCount)}
       <td>
         <button class="btn btn-secondary btn-small edit-expense" data-id="${e.id}">編輯</button>
         <button class="btn btn-danger btn-small del-expense" data-id="${e.id}">刪除</button>
@@ -792,18 +800,34 @@ function renderDashboard() {
   const byCategory = {};
   const byDate = {};
   const byMember = {};
+  const byCurrency = {};
   expenses.forEach((e) => {
     const cat = e.category_name || '未分類';
     byCategory[cat] = (byCategory[cat] || 0) + e.converted_amount;
     byDate[e.date] = (byDate[e.date] || 0) + e.converted_amount;
     const mem = e.payer_name || '未指定';
     byMember[mem] = (byMember[mem] || 0) + e.converted_amount;
+    if (!byCurrency[e.original_currency]) byCurrency[e.original_currency] = { original: 0, twd: 0 };
+    byCurrency[e.original_currency].original += e.original_amount;
+    byCurrency[e.original_currency].twd += e.converted_amount;
   });
 
   renderChart('categoryChart', 'doughnut', Object.keys(byCategory), Object.values(byCategory));
   const sortedDates = Object.keys(byDate).sort();
   renderChart('dateChart', 'line', sortedDates, sortedDates.map((d) => byDate[d]));
   renderChart('memberChart', 'bar', Object.keys(byMember), Object.values(byMember));
+
+  // 依原幣別：圓餅圖用換算後的 TWD 比較（不同幣別的原始數字級距差太多，直接比會失真），
+  // 底下再用文字列出各幣別實際付了多少原幣
+  const currencies = Object.keys(byCurrency).sort((a, b) => byCurrency[b].twd - byCurrency[a].twd);
+  renderChart('currencyChart', 'doughnut', currencies, currencies.map((c) => byCurrency[c].twd));
+  document.getElementById('currencyBreakdown').innerHTML = currencies.length
+    ? currencies.map((c) => `
+      <div class="recent-expense-row">
+        <span>${escapeHtml(c)}</span>
+        <span>${fmt(byCurrency[c].original)} ${escapeHtml(c)}　→　${fmt(byCurrency[c].twd)} TWD</span>
+      </div>`).join('')
+    : '<p class="hint">尚無紀錄</p>';
 }
 
 function renderChart(canvasId, type, labels, data) {
@@ -848,27 +872,90 @@ async function loadSettlement() {
   renderExpenseDetailTable();
 }
 
-// 列出這趟旅程「所有」支出（不管分攤方式），讓大家看得到完整的輸入資料，跟結算計算邏輯分開
+// 支出明細的篩選條件（依付款人、日期區間），只影響這張表格與它的 CSV 匯出，不影響上方結算計算
+function getDetailFilteredExpenses() {
+  const payer = document.getElementById('detailFilterPayer').value;
+  const from = document.getElementById('detailFilterFrom').value;
+  const to = document.getElementById('detailFilterTo').value;
+  return state.expenses.filter((e) =>
+    (!payer || String(e.payer_member_id || '') === payer) &&
+    (!from || e.date >= from) &&
+    (!to || e.date <= to));
+}
+
+// 列出這趟旅程的支出（不管分攤方式），讓大家看得到完整的輸入資料，跟結算計算邏輯分開
 function renderExpenseDetailTable() {
   const tbody = document.querySelector('#expenseDetailTable tbody');
-  if (!tbody) return;
-  if (state.expenses.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="hint">尚無支出紀錄</td></tr>';
+  if (!tbody || !state.currentTrip) return;
+
+  const payerSelect = document.getElementById('detailFilterPayer');
+  const previousPayer = payerSelect.value;
+  payerSelect.innerHTML = '<option value="">全部付款人</option>' +
+    state.currentTrip.members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
+  if (previousPayer && payerSelect.querySelector(`option[value="${previousPayer}"]`)) {
+    payerSelect.value = previousPayer;
+  }
+
+  const expenses = getDetailFilteredExpenses();
+  if (expenses.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" class="hint">${state.expenses.length === 0 ? '尚無支出紀錄' : '目前篩選條件下沒有符合的紀錄'}</td></tr>`;
     return;
   }
   const memberCount = state.currentTrip.members.length;
-  tbody.innerHTML = state.expenses.map((e) => `
-    <tr>
-      <td>${e.date}</td>
-      <td>${escapeHtml(e.payer_name || '未指定')}</td>
-      <td>${PAYMENT_METHOD_LABELS[e.payment_method] || '現金'}</td>
-      <td>${fmt(e.original_amount)} ${e.original_currency}</td>
-      <td>${fmt(e.converted_amount)} TWD</td>
-      <td>${describeSplitMode(e, memberCount)}</td>
-      <td class="wrap">${e.splits.length ? e.splits.map((s) => `${escapeHtml(s.member_name)}:${fmt(s.share_amount)}`).join(', ') : '—'}</td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = expenses.map((e) => `<tr>${expenseRowCells(e, memberCount)}</tr>`).join('');
 }
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+// 在瀏覽器端直接產生 CSV，才能把目前的篩選條件一起帶進去（後端的匯出永遠是整趟旅程）
+function exportSettlementCsv() {
+  if (!state.currentTrip) return;
+  const expenses = getDetailFilteredExpenses();
+  if (expenses.length === 0) { alert('目前篩選條件下沒有可匯出的紀錄'); return; }
+  const memberCount = state.currentTrip.members.length;
+
+  const header = ['日期', '分類', '付款人', '付款方式', '付款金額', '付款幣別', '換算金額(TWD)', '備註', '分攤方式', '分攤明細', '有收據'];
+  const lines = [header.map(csvEscape).join(',')];
+  for (const e of expenses) {
+    lines.push([
+      e.date,
+      e.category_name || '未分類',
+      e.payer_name || '未指定',
+      PAYMENT_METHOD_LABELS[e.payment_method] || '現金',
+      e.original_amount,
+      e.original_currency,
+      e.converted_amount,
+      e.note || '',
+      describeSplitMode(e, memberCount),
+      e.splits.map((s) => `${s.member_name}:${s.share_amount}`).join(' / '),
+      e.has_receipt ? '是' : '否',
+    ].map(csvEscape).join(','));
+  }
+
+  const BOM = String.fromCharCode(0xfeff); // 讓 Excel 開啟時中文不會亂碼
+  const blob = new Blob([BOM + lines.join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${state.currentTrip.name}_支出明細.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('detailFilterPayer').addEventListener('change', renderExpenseDetailTable);
+document.getElementById('detailFilterFrom').addEventListener('change', renderExpenseDetailTable);
+document.getElementById('detailFilterTo').addEventListener('change', renderExpenseDetailTable);
+document.getElementById('clearDetailFilterBtn').addEventListener('click', () => {
+  document.getElementById('detailFilterPayer').value = '';
+  document.getElementById('detailFilterFrom').value = '';
+  document.getElementById('detailFilterTo').value = '';
+  renderExpenseDetailTable();
+});
+document.getElementById('exportSettlementCsvBtn').addEventListener('click', exportSettlementCsv);
 
 async function selectTripByFamilyNumber(familyNumber) {
   state.currentTrip = await api(`/api/trips/by-family/${familyNumber}`);
