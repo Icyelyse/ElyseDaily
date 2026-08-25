@@ -12,6 +12,15 @@ const state = {
 const PAYMENT_METHOD_LABELS = { cash: '現金', credit_card: '信用卡' };
 const OFFLINE_QUEUE_KEY = 'offlineExpenseQueue';
 
+// 是否為完整管理端頁面（index.html 有「管理」分頁；訪客頁 friend.html 沒有這些 DOM，靠這個旗標跳過管理相關邏輯）
+const IS_ADMIN_UI = !!document.getElementById('tab-admin');
+const FRIEND_MATCH = window.location.pathname.match(/^\/friend\/(\d+)/);
+const GUEST_TRIP_ID = FRIEND_MATCH ? FRIEND_MATCH[1] : null;
+
+function payerStorageKey(tripId) {
+  return `lastPayer_${tripId}`;
+}
+
 function fmt(n) {
   return Number(n || 0).toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -130,7 +139,9 @@ async function loadTrips() {
   }
 }
 
-document.getElementById('tripSelect').addEventListener('change', (e) => selectTrip(e.target.value));
+if (IS_ADMIN_UI) {
+  document.getElementById('tripSelect').addEventListener('change', (e) => selectTrip(e.target.value));
+}
 
 async function selectTrip(id) {
   if (!id) {
@@ -157,11 +168,8 @@ async function refreshCurrentTrip() {
 
 function populateTripDependentUI() {
   const trip = state.currentTrip;
-  const defaultCurrency = trip.default_currency || trip.base_currency;
+  const defaultCurrency = trip.default_currency || 'TWD';
   populateCurrencySelect(document.getElementById('f-currency'), defaultCurrency);
-  populateCurrencySelect(document.getElementById('t-currency'), trip.base_currency);
-  populateCurrencySelect(document.getElementById('t-default-currency'), defaultCurrency);
-  document.getElementById('baseCurrencyLabel').textContent = trip.base_currency;
 
   const categorySelect = document.getElementById('f-category');
   categorySelect.innerHTML = trip.categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
@@ -170,15 +178,19 @@ function populateTripDependentUI() {
   payerSelect.innerHTML = '<option value="">未指定</option>' +
     trip.members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
 
-  document.getElementById('t-name').value = trip.name;
-  document.getElementById('t-currency').value = trip.base_currency;
-  document.getElementById('t-start').value = trip.start_date || '';
-  document.getElementById('t-end').value = trip.end_date || '';
-
-  renderMemberChips();
-  renderCategoryChips();
-  renderSplitCustomArea();
   document.getElementById('exportCsvBtn').href = `/api/trips/${trip.id}/export.csv`;
+
+  if (IS_ADMIN_UI) {
+    populateCurrencySelect(document.getElementById('t-default-currency'), defaultCurrency);
+    document.getElementById('t-name').value = trip.name;
+    document.getElementById('t-start').value = trip.start_date || '';
+    document.getElementById('t-end').value = trip.end_date || '';
+    document.getElementById('friendLinkInput').value = `${location.origin}/friend/${trip.id}`;
+    renderMemberChips();
+    renderCategoryChips();
+  }
+
+  renderSplitCustomArea();
 }
 
 function renderMemberChips() {
@@ -211,26 +223,62 @@ function renderCategoryChips() {
   });
 }
 
-document.getElementById('addMemberBtn').addEventListener('click', async () => {
-  const input = document.getElementById('newMemberName');
-  const name = input.value.trim();
-  if (!name || !state.currentTrip) return;
-  await api(`/api/trips/${state.currentTrip.id}/members`, { method: 'POST', body: JSON.stringify({ name }) });
-  input.value = '';
-  await refreshCurrentTrip();
-});
+if (IS_ADMIN_UI) {
+  document.getElementById('addMemberBtn').addEventListener('click', async () => {
+    const input = document.getElementById('newMemberName');
+    const name = input.value.trim();
+    if (!name || !state.currentTrip) return;
+    await api(`/api/trips/${state.currentTrip.id}/members`, { method: 'POST', body: JSON.stringify({ name }) });
+    input.value = '';
+    await refreshCurrentTrip();
+  });
 
-document.getElementById('addCategoryBtn').addEventListener('click', async () => {
-  const input = document.getElementById('newCategoryName');
-  const name = input.value.trim();
-  if (!name || !state.currentTrip) return;
-  await api(`/api/trips/${state.currentTrip.id}/categories`, { method: 'POST', body: JSON.stringify({ name }) });
-  input.value = '';
-  await refreshCurrentTrip();
-});
+  document.getElementById('addCategoryBtn').addEventListener('click', async () => {
+    const input = document.getElementById('newCategoryName');
+    const name = input.value.trim();
+    if (!name || !state.currentTrip) return;
+    await api(`/api/trips/${state.currentTrip.id}/categories`, { method: 'POST', body: JSON.stringify({ name }) });
+    input.value = '';
+    await refreshCurrentTrip();
+  });
 
-// ---------- New trip modal ----------
-document.getElementById('newTripBtn').addEventListener('click', openNewTripModal);
+  document.getElementById('newTripBtn').addEventListener('click', openNewTripModal);
+
+  document.getElementById('copyFriendLinkBtn').addEventListener('click', async () => {
+    const input = document.getElementById('friendLinkInput');
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch {
+      input.select();
+      document.execCommand('copy');
+    }
+    alert('已複製連結');
+  });
+
+  document.getElementById('saveTripBtn').addEventListener('click', async () => {
+    if (!state.currentTrip) return;
+    const body = {
+      name: document.getElementById('t-name').value.trim(),
+      default_currency: document.getElementById('t-default-currency').value,
+      start_date: document.getElementById('t-start').value || null,
+      end_date: document.getElementById('t-end').value || null,
+    };
+    if (!body.name) { alert('請輸入旅程名稱'); return; }
+    await api(`/api/trips/${state.currentTrip.id}`, { method: 'PUT', body: JSON.stringify(body) });
+    await loadTrips();
+    document.getElementById('tripSelect').value = state.currentTrip.id;
+    await selectTrip(state.currentTrip.id);
+    alert('已儲存旅程設定');
+  });
+
+  document.getElementById('deleteTripBtn').addEventListener('click', async () => {
+    if (!state.currentTrip) return;
+    if (!confirm('確定要刪除整個旅程嗎？所有支出紀錄都會一併刪除，無法復原。')) return;
+    await api(`/api/trips/${state.currentTrip.id}`, { method: 'DELETE' });
+    localStorage.removeItem('currentTripId');
+    await loadTrips();
+  });
+}
 
 function openNewTripModal() {
   const root = document.getElementById('modalRoot');
@@ -240,7 +288,6 @@ function openNewTripModal() {
         <h3>新增旅程</h3>
         <div class="form-grid">
           <label>名稱 <input type="text" id="m-name" placeholder="例如：東京五日遊" /></label>
-          <label>基準貨幣 <select id="m-currency"></select></label>
           <label>開始日期 <input type="date" id="m-start" /></label>
           <label>結束日期 <input type="date" id="m-end" /></label>
         </div>
@@ -250,14 +297,12 @@ function openNewTripModal() {
         </div>
       </div>
     </div>`;
-  populateCurrencySelect(document.getElementById('m-currency'), 'TWD');
   document.getElementById('m-cancel').addEventListener('click', () => { root.innerHTML = ''; });
   document.getElementById('m-submit').addEventListener('click', async () => {
     const name = document.getElementById('m-name').value.trim();
     if (!name) { alert('請輸入旅程名稱'); return; }
     const body = {
       name,
-      base_currency: document.getElementById('m-currency').value,
       start_date: document.getElementById('m-start').value || null,
       end_date: document.getElementById('m-end').value || null,
     };
@@ -268,32 +313,6 @@ function openNewTripModal() {
     await selectTrip(created.id);
   });
 }
-
-// ---------- Trip settings (admin) ----------
-document.getElementById('saveTripBtn').addEventListener('click', async () => {
-  if (!state.currentTrip) return;
-  const body = {
-    name: document.getElementById('t-name').value.trim(),
-    base_currency: document.getElementById('t-currency').value,
-    default_currency: document.getElementById('t-default-currency').value,
-    start_date: document.getElementById('t-start').value || null,
-    end_date: document.getElementById('t-end').value || null,
-  };
-  if (!body.name) { alert('請輸入旅程名稱'); return; }
-  await api(`/api/trips/${state.currentTrip.id}`, { method: 'PUT', body: JSON.stringify(body) });
-  await loadTrips();
-  document.getElementById('tripSelect').value = state.currentTrip.id;
-  await selectTrip(state.currentTrip.id);
-  alert('已儲存旅程設定');
-});
-
-document.getElementById('deleteTripBtn').addEventListener('click', async () => {
-  if (!state.currentTrip) return;
-  if (!confirm('確定要刪除整個旅程嗎？所有支出紀錄都會一併刪除，無法復原。')) return;
-  await api(`/api/trips/${state.currentTrip.id}`, { method: 'DELETE' });
-  localStorage.removeItem('currentTripId');
-  await loadTrips();
-});
 
 // ---------- Expense form ----------
 document.getElementById('f-currency').addEventListener('change', updateRatePreview);
@@ -334,7 +353,7 @@ async function updateRatePreview() {
   if (!trip) return;
   const currency = document.getElementById('f-currency').value;
 
-  if (currency === trip.base_currency) {
+  if (currency === 'TWD') {
     document.getElementById('f-rate').value = 1;
     statusEl.textContent = '同幣別，匯率為 1';
     statusEl.classList.remove('error');
@@ -345,7 +364,7 @@ async function updateRatePreview() {
   statusEl.textContent = '正在查詢即時匯率...';
   statusEl.classList.remove('error');
   try {
-    const data = await api(`/api/rates?base=${encodeURIComponent(currency)}&target=${encodeURIComponent(trip.base_currency)}`);
+    const data = await api(`/api/rates?base=${encodeURIComponent(currency)}&target=TWD`);
     document.getElementById('f-rate').value = data.rate;
     const sourceLabel = data.source === 'live' ? '即時' : data.source === 'cache' ? '快取' : '相同幣別';
     statusEl.textContent = `已帶入 ${data.date} 匯率（來源：${sourceLabel}），如需可手動修改`;
@@ -470,6 +489,10 @@ document.getElementById('expenseForm').addEventListener('submit', async (e) => {
     splits,
   };
 
+  if (body.payer_member_id) {
+    localStorage.setItem(payerStorageKey(trip.id), body.payer_member_id);
+  }
+
   if (!editingId && !navigator.onLine) {
     queueOfflineExpense(trip.id, body);
     alert('目前離線，這筆支出已暫存在裝置上，恢復網路連線後會自動上傳同步');
@@ -515,7 +538,14 @@ function resetExpenseForm() {
   document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
   document.getElementById('f-rate').value = 1;
   document.getElementById('f-payment').value = 'cash';
-  if (state.currentTrip) populateCurrencySelect(document.getElementById('f-currency'), state.currentTrip.default_currency || state.currentTrip.base_currency);
+  if (state.currentTrip) {
+    populateCurrencySelect(document.getElementById('f-currency'), state.currentTrip.default_currency || 'TWD');
+    const rememberedPayer = localStorage.getItem(payerStorageKey(state.currentTrip.id));
+    const payerSelect = document.getElementById('f-payer');
+    if (rememberedPayer && payerSelect.querySelector(`option[value="${rememberedPayer}"]`)) {
+      payerSelect.value = rememberedPayer;
+    }
+  }
   document.querySelector('input[name="splitMode"][value="equal"]').checked = true;
   state.pendingReceiptFile = null;
   state.pendingRemoveReceipt = false;
@@ -580,7 +610,7 @@ async function loadExpenses() {
   if (!state.currentTrip) return;
   state.expenses = await api(`/api/trips/${state.currentTrip.id}/expenses`);
   renderRecentExpenses();
-  renderExpenseTable();
+  if (IS_ADMIN_UI) renderExpenseTable();
   renderDashboard();
 }
 
@@ -591,7 +621,7 @@ function renderRecentExpenses() {
   container.innerHTML = recent.map((e) => `
     <div class="recent-expense-row">
       <span>${e.date} · ${escapeHtml(e.category_name || '未分類')} · ${escapeHtml(e.payer_name || '未指定')}</span>
-      <span>${fmt(e.converted_amount)} ${state.currentTrip.base_currency}</span>
+      <span>${fmt(e.converted_amount)} TWD</span>
     </div>
   `).join('');
 }
@@ -609,7 +639,7 @@ function renderExpenseTable() {
       <td>${escapeHtml(e.payer_name || '未指定')}</td>
       <td>${PAYMENT_METHOD_LABELS[e.payment_method] || '現金'}</td>
       <td>${fmt(e.original_amount)} ${e.original_currency}</td>
-      <td>${fmt(e.converted_amount)} ${state.currentTrip.base_currency}</td>
+      <td>${fmt(e.converted_amount)} TWD</td>
       <td class="wrap">${escapeHtml(e.note || '')}</td>
       <td class="wrap">${e.splits.length ? e.splits.map((s) => `${escapeHtml(s.member_name)}:${fmt(s.share_amount)}`).join(', ') : '無需分攤'}</td>
       <td>${e.has_receipt ? `<a class="receipt-link" href="/api/expenses/${e.id}/receipt" target="_blank" rel="noopener" title="查看收據">📷</a>` : ''}</td>
@@ -659,7 +689,7 @@ function renderDashboard() {
   }
   const expenses = getFilteredExpenses();
   const total = expenses.reduce((a, e) => a + e.converted_amount, 0);
-  document.getElementById('totalAmount').textContent = `${fmt(total)} ${state.currentTrip.base_currency}`;
+  document.getElementById('totalAmount').textContent = `${fmt(total)} TWD`;
 
   const byCategory = {};
   const byDate = {};
@@ -686,7 +716,7 @@ function renderChart(canvasId, type, labels, data) {
     data: {
       labels,
       datasets: [{
-        label: state.currentTrip ? state.currentTrip.base_currency : '',
+        label: state.currentTrip ? 'TWD' : '',
         data,
         backgroundColor: type === 'line' ? 'rgba(37,99,235,0.15)' : PALETTE,
         borderColor: type === 'line' ? '#2563eb' : '#ffffff',
@@ -714,20 +744,32 @@ async function loadSettlement() {
 
   const list = document.getElementById('transactionList');
   list.innerHTML = data.transactions.length
-    ? data.transactions.map((t) => `<li>${escapeHtml(t.from)} → ${escapeHtml(t.to)}：${fmt(t.amount)} ${state.currentTrip.base_currency}</li>`).join('')
+    ? data.transactions.map((t) => `<li>${escapeHtml(t.from)} → ${escapeHtml(t.to)}：${fmt(t.amount)} TWD</li>`).join('')
     : '<li class="hint">目前收支平衡，無需轉帳</li>';
 }
 
 // ---------- Init ----------
 (async function init() {
   showNoTripHint(true);
+  document.getElementById('noTripHint').textContent = GUEST_TRIP_ID ? '正在載入旅程...' : '請先在右上角建立或選擇一個旅程。';
   resetExpenseForm();
   updateOfflineBadge();
   try {
-    await loadTrips();
+    if (GUEST_TRIP_ID) {
+      await selectTrip(GUEST_TRIP_ID);
+      const nameEl = document.getElementById('guestTripName');
+      if (nameEl && state.currentTrip) nameEl.textContent = `✈️ ${state.currentTrip.name}`;
+    } else {
+      await loadTrips();
+    }
   } catch (err) {
-    if (!isNetworkError(err)) throw err;
-    // 離線且尚未有任何快取資料可顯示
+    if (!isNetworkError(err)) {
+      document.getElementById('noTripHint').textContent = GUEST_TRIP_ID
+        ? '找不到這趟旅程，請確認連結是否正確'
+        : `無法載入旅程：${err.message}`;
+    } else {
+      document.getElementById('noTripHint').textContent = '目前離線，且尚無快取資料可顯示，請確認網路連線';
+    }
   }
   await flushOfflineQueue();
 })();

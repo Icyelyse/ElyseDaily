@@ -13,11 +13,11 @@ router.get('/trips', async (req, res) => {
 });
 
 router.post('/trips', async (req, res) => {
-  const { name, base_currency, start_date, end_date, default_currency } = req.body;
-  if (!name || !base_currency) return res.status(400).json({ error: 'name 與 base_currency 為必填' });
+  const { name, start_date, end_date, default_currency } = req.body;
+  if (!name) return res.status(400).json({ error: 'name 為必填' });
   const result = await db.execute({
-    sql: 'INSERT INTO trips (name, base_currency, start_date, end_date, default_currency) VALUES (?, ?, ?, ?, ?)',
-    args: [name, base_currency, start_date || null, end_date || null, default_currency || base_currency],
+    sql: "INSERT INTO trips (name, base_currency, start_date, end_date, default_currency) VALUES (?, 'TWD', ?, ?, ?)",
+    args: [name, start_date || null, end_date || null, default_currency || 'TWD'],
   });
   const tripId = Number(result.lastInsertRowid);
   await seedDefaultCategories(tripId);
@@ -34,10 +34,10 @@ router.get('/trips/:id', async (req, res) => {
 });
 
 router.put('/trips/:id', async (req, res) => {
-  const { name, base_currency, start_date, end_date, default_currency } = req.body;
+  const { name, start_date, end_date, default_currency } = req.body;
   await db.execute({
-    sql: 'UPDATE trips SET name = ?, base_currency = ?, start_date = ?, end_date = ?, default_currency = ? WHERE id = ?',
-    args: [name, base_currency, start_date || null, end_date || null, default_currency || base_currency, req.params.id],
+    sql: "UPDATE trips SET name = ?, base_currency = 'TWD', start_date = ?, end_date = ?, default_currency = ? WHERE id = ?",
+    args: [name, start_date || null, end_date || null, default_currency || 'TWD', req.params.id],
   });
   res.json({ ok: true });
 });

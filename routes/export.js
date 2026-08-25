@@ -12,9 +12,8 @@ function csvEscape(value) {
 router.get('/trips/:tripId/export.csv', async (req, res) => {
   const { tripId } = req.params;
 
-  const tripResult = await db.execute({ sql: 'SELECT * FROM trips WHERE id = ?', args: [tripId] });
+  const tripResult = await db.execute({ sql: 'SELECT id FROM trips WHERE id = ?', args: [tripId] });
   if (tripResult.rows.length === 0) return res.status(404).json({ error: '找不到旅程' });
-  const trip = tripResult.rows[0];
 
   const expensesResult = await db.execute({
     sql: `SELECT e.id, e.date, e.original_amount, e.original_currency, e.rate_used, e.converted_amount, e.note, e.payment_method,
@@ -44,7 +43,7 @@ router.get('/trips/:tripId/export.csv', async (req, res) => {
   }
 
   const PAYMENT_METHOD_LABELS = { cash: '現金', credit_card: '信用卡' };
-  const header = ['日期', '分類', '付款人', '付款方式', `原幣金額`, '原幣別', '匯率', `換算金額(${trip.base_currency})`, '備註', '分攤明細', '有收據'];
+  const header = ['日期', '分類', '付款人', '付款方式', '付款金額', '付款幣別', 'TWD匯率', '換算金額(TWD)', '備註', '分攤明細', '有收據'];
   const lines = [header.map(csvEscape).join(',')];
 
   for (const e of expensesResult.rows) {

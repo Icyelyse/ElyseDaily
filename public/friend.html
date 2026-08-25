@@ -4,31 +4,28 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>旅遊記帳系統</title>
-<link rel="manifest" href="manifest.json" />
-<link rel="icon" href="icon.svg" />
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/icon.svg" />
 <meta name="theme-color" content="#2563eb" />
-<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="/style.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
 <header class="topbar">
-  <h1>✈️ 旅遊記帳系統</h1>
+  <h1 id="guestTripName">✈️ 旅遊記帳系統</h1>
   <div class="trip-picker">
     <span id="offlineBadge" class="offline-badge hidden">📴 離線，<span id="offlineCount">0</span> 筆待同步</span>
-    <select id="tripSelect"><option value="">請選擇旅程...</option></select>
-    <button id="newTripBtn" class="btn btn-primary">＋ 新增旅程</button>
   </div>
 </header>
 
 <nav class="tabs">
   <button class="tab-btn active" data-tab="record">記帳</button>
   <button class="tab-btn" data-tab="dashboard">總覽圖表</button>
-  <button class="tab-btn" data-tab="admin">管理</button>
   <button class="tab-btn" data-tab="settlement">分帳結算</button>
 </nav>
 
 <main id="app">
-  <p id="noTripHint" class="hint">請先在右上角建立或選擇一個旅程。</p>
+  <p id="noTripHint" class="hint"></p>
 
   <!-- 記帳 -->
   <section id="tab-record" class="tab-panel active">
@@ -117,62 +114,6 @@
     </div>
   </section>
 
-  <!-- 管理 -->
-  <section id="tab-admin" class="tab-panel">
-    <div class="card">
-      <h2>旅程設定</h2>
-      <div class="form-grid">
-        <label>名稱 <input type="text" id="t-name" /></label>
-        <label>記帳預設幣別（新增支出時預先選好） <select id="t-default-currency"></select></label>
-        <label>開始日期 <input type="date" id="t-start" /></label>
-        <label>結束日期 <input type="date" id="t-end" /></label>
-      </div>
-      <div class="form-actions">
-        <button id="saveTripBtn" class="btn btn-primary">儲存旅程設定</button>
-        <button id="deleteTripBtn" class="btn btn-danger">刪除此旅程</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>分享給朋友的連結</h2>
-      <p class="hint">朋友打開這個連結只能新增記帳、看圖表和分帳結果，不會看到旅程管理設定，也不能編輯/刪除紀錄。</p>
-      <div class="inline-add">
-        <input type="text" id="friendLinkInput" readonly />
-        <button id="copyFriendLinkBtn" class="btn btn-secondary">複製連結</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>成員</h2>
-      <div id="memberList" class="chip-list"></div>
-      <div class="inline-add">
-        <input type="text" id="newMemberName" placeholder="新成員名稱" />
-        <button id="addMemberBtn" class="btn btn-secondary">新增成員</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>花費分類</h2>
-      <div id="categoryList" class="chip-list"></div>
-      <div class="inline-add">
-        <input type="text" id="newCategoryName" placeholder="新分類名稱" />
-        <button id="addCategoryBtn" class="btn btn-secondary">新增分類</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>所有支出紀錄</h2>
-      <div class="table-wrap">
-        <table id="expenseTable">
-          <thead>
-            <tr><th>日期</th><th>分類</th><th>付款人</th><th>付款方式</th><th>付款金額</th><th>換算金額(TWD)</th><th>備註</th><th>分攤</th><th>收據</th><th></th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
   <!-- 分帳結算 -->
   <section id="tab-settlement" class="tab-panel">
     <div class="card">
@@ -191,6 +132,6 @@
 
 <div id="modalRoot"></div>
 
-<script src="app.js"></script>
+<script src="/app.js"></script>
 </body>
 </html>

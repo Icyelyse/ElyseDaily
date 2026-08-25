@@ -72,6 +72,8 @@ async function init() {
   await ensureColumn('trips', 'default_currency', 'TEXT');
   // 舊資料補上預設幣別（沿用基準貨幣），之後可在「管理」分頁另外設定
   await db.execute('UPDATE trips SET default_currency = base_currency WHERE default_currency IS NULL');
+  // 系統改為一律換算成新台幣，基準貨幣不再開放自訂
+  await db.execute("UPDATE trips SET base_currency = 'TWD' WHERE base_currency <> 'TWD'");
 }
 
 async function ensureColumn(table, column, definition) {
