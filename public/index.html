@@ -159,6 +159,19 @@
     </div>
 
     <div class="card">
+      <h2>同步到 Google 試算表</h2>
+      <p class="hint">把下面篩選出來的支出資料同步到你自己的 Google 試算表（會覆蓋掉該旅程對應分頁的內容）。需要先完成一次性的 Apps Script 設定。</p>
+      <div class="filter-bar detail-filter-bar">
+        <label>付款人 <select id="syncFilterPayer"></select></label>
+        <label>從 <input type="date" id="syncFilterFrom" /></label>
+        <label>到 <input type="date" id="syncFilterTo" /></label>
+        <button id="clearSyncFilterBtn" class="btn btn-secondary">清除篩選</button>
+        <button id="syncSheetsBtn" class="btn btn-primary">立即同步</button>
+      </div>
+      <p id="syncSheetsStatus" class="rate-status"></p>
+    </div>
+
+    <div class="card">
       <h2>成員</h2>
       <div id="memberList" class="chip-list"></div>
       <div class="inline-add">
@@ -210,7 +223,6 @@
         <label>從 <input type="date" id="detailFilterFrom" /></label>
         <label>到 <input type="date" id="detailFilterTo" /></label>
         <button id="clearDetailFilterBtn" class="btn btn-secondary">清除篩選</button>
-        <button id="exportSettlementCsvBtn" class="btn btn-secondary">匯出 CSV</button>
       </div>
       <div class="table-wrap">
         <table id="expenseDetailTable">

@@ -7,6 +7,7 @@ const tripsRouter = require('./routes/trips');
 const expensesRouter = require('./routes/expenses');
 const ratesRouter = require('./routes/rates');
 const exportRouter = require('./routes/export');
+const sheetsRouter = require('./routes/sheets');
 
 const app = express();
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use('/api/rates', ratesRouter);
 app.use('/api', tripsRouter);
 app.use('/api', expensesRouter);
 app.use('/api', exportRouter);
+app.use('/api', sheetsRouter);
 
 app.use((err, req, res, next) => {
   console.error(err);

@@ -239,6 +239,7 @@ function populateTripDependentUI() {
     renderMemberChips();
     renderCategoryChips();
     renderCurrencyChips();
+    populateSyncFilterPayer();
   }
 
   renderSplitCustomArea();
@@ -905,47 +906,6 @@ function renderExpenseDetailTable() {
   tbody.innerHTML = expenses.map((e) => `<tr>${expenseRowCells(e, memberCount)}</tr>`).join('');
 }
 
-function csvEscape(value) {
-  if (value === null || value === undefined) return '';
-  const str = String(value);
-  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-}
-
-// 在瀏覽器端直接產生 CSV，才能把目前的篩選條件一起帶進去（後端的匯出永遠是整趟旅程）
-function exportSettlementCsv() {
-  if (!state.currentTrip) return;
-  const expenses = getDetailFilteredExpenses();
-  if (expenses.length === 0) { alert('目前篩選條件下沒有可匯出的紀錄'); return; }
-  const memberCount = state.currentTrip.members.length;
-
-  const header = ['日期', '分類', '付款人', '付款方式', '付款金額', '付款幣別', '換算金額(TWD)', '備註', '分攤方式', '分攤明細', '有收據'];
-  const lines = [header.map(csvEscape).join(',')];
-  for (const e of expenses) {
-    lines.push([
-      e.date,
-      e.category_name || '未分類',
-      e.payer_name || '未指定',
-      PAYMENT_METHOD_LABELS[e.payment_method] || '現金',
-      e.original_amount,
-      e.original_currency,
-      e.converted_amount,
-      e.note || '',
-      describeSplitMode(e, memberCount),
-      e.splits.map((s) => `${s.member_name}:${s.share_amount}`).join(' / '),
-      e.has_receipt ? '是' : '否',
-    ].map(csvEscape).join(','));
-  }
-
-  const BOM = String.fromCharCode(0xfeff); // 讓 Excel 開啟時中文不會亂碼
-  const blob = new Blob([BOM + lines.join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${state.currentTrip.name}_支出明細.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 document.getElementById('detailFilterPayer').addEventListener('change', renderExpenseDetailTable);
 document.getElementById('detailFilterFrom').addEventListener('change', renderExpenseDetailTable);
 document.getElementById('detailFilterTo').addEventListener('change', renderExpenseDetailTable);
@@ -955,7 +915,42 @@ document.getElementById('clearDetailFilterBtn').addEventListener('click', () => 
   document.getElementById('detailFilterTo').value = '';
   renderExpenseDetailTable();
 });
-document.getElementById('exportSettlementCsvBtn').addEventListener('click', exportSettlementCsv);
+
+// ---------- Google 試算表同步（管理端限定）----------
+function populateSyncFilterPayer() {
+  const select = document.getElementById('syncFilterPayer');
+  const previous = select.value;
+  select.innerHTML = '<option value="">全部付款人</option>' +
+    state.currentTrip.members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
+  if (previous && select.querySelector(`option[value="${previous}"]`)) select.value = previous;
+}
+
+if (IS_ADMIN_UI) {
+  document.getElementById('clearSyncFilterBtn').addEventListener('click', () => {
+    document.getElementById('syncFilterPayer').value = '';
+    document.getElementById('syncFilterFrom').value = '';
+    document.getElementById('syncFilterTo').value = '';
+  });
+
+  document.getElementById('syncSheetsBtn').addEventListener('click', async () => {
+    if (!state.currentTrip) return;
+    const statusEl = document.getElementById('syncSheetsStatus');
+    statusEl.classList.remove('error');
+    statusEl.textContent = '同步中...';
+    const body = {
+      payer_member_id: document.getElementById('syncFilterPayer').value || undefined,
+      from: document.getElementById('syncFilterFrom').value || undefined,
+      to: document.getElementById('syncFilterTo').value || undefined,
+    };
+    try {
+      const data = await api(`/api/trips/${state.currentTrip.id}/sync-sheets`, { method: 'POST', body: JSON.stringify(body) });
+      statusEl.textContent = `同步成功，共 ${data.syncedRows} 筆`;
+    } catch (err) {
+      statusEl.textContent = err.message;
+      statusEl.classList.add('error');
+    }
+  });
+}
 
 async function selectTripByFamilyNumber(familyNumber) {
   state.currentTrip = await api(`/api/trips/by-family/${familyNumber}`);
